@@ -41,7 +41,25 @@ components/Chat.tsx
 
 `lib/vectorStore.ts` holds an in-memory chunk store (replace with Pinecone/Supabase for production). Docs are indexed via `POST /api/index-docs` (accepts `{ documents: { text, source }[] }`). The `searchDocs` tool in `lib/tools.ts` queries it and is included in the chat agent's toolset.
 
-Embedding pipeline: `lib/chunker.ts` splits text → `lib/embeddings.ts` calls the Anthropic embeddings API → cosine similarity search in `lib/vectorStore.ts`.
+Embedding pipeline: `lib/chunker.ts` splits text → `lib/embeddings.ts` calls OpenAI `text-embedding-3-small` (via `@ai-sdk/openai`) → cosine similarity search in `lib/vectorStore.ts`.
+
+### Document upload (`/documents` page)
+
+Users upload `.md` files through the UI. On success the file is chunked, embedded, and stored in the vector store so `searchDocs` can retrieve it during chat.
+
+```
+app/(main)/documents/page.tsx   ← doc list table + upload button + toast
+  └─ GET /api/docs              ← returns lib/docRegistry.listDocs() as JSON
+  └─ components/UploadModal.tsx ← file picker modal (accept=".md")
+       └─ POST /api/upload-doc  ← validates .md, calls indexDocument, addDoc
+            └─ lib/docRegistry.ts  ← module-level array: addDoc / listDocs
+```
+
+Both the vector store and doc registry are in-memory — they reset on server restart.
+
+### Route group layout
+
+All UI pages live under the `app/(main)/` route group. `app/(main)/layout.tsx` wraps every page in `<AppShell>` (header + collapsible sidebar). `app/layout.tsx` is the root HTML shell only.
 
 ### Key SDK conventions in this version (ai v6 / @ai-sdk v3)
 
@@ -66,8 +84,13 @@ Embedding pipeline: `lib/chunker.ts` splits text → `lib/embeddings.ts` calls t
 | `app/api/chat/route.ts` | Simple streaming endpoint (legacy, unused by UI) |
 | `app/api/research/route.ts` | Standalone research endpoint wrapping `streamResearch` |
 | `app/api/index-docs/route.ts` | Indexes documents into the vector store |
+| `app/api/upload-doc/route.ts` | `POST` — accepts `.md` file, validates, indexes, registers in docRegistry |
+| `app/api/docs/route.ts` | `GET` — returns `listDocs()` as JSON |
+| `lib/docRegistry.ts` | In-memory doc metadata store: `addDoc(filename, chunkCount)`, `listDocs()` |
 | `components/Chat.tsx` | Chat UI |
+| `components/AppShell.tsx` | Header + sidebar shell; wraps all `(main)` pages |
 | `components/Sidebar.tsx` | Collapsible sidebar — `collapsed: boolean`, `onToggle: () => void` |
+| `components/UploadModal.tsx` | File picker modal for `.md` upload with loading state |
 | `hooks/useChat.ts` | Legacy custom hook (unused) |
 
 ### Environment
