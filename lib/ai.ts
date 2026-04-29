@@ -7,11 +7,13 @@ import {
   notepad,
   readWebPage,
   searchWeb,
+  searchDocs,
 } from "./tools";
 
 const chatTools = {
   getWeather: weatherTool,
   calculate: calculatorTool,
+  searchDocs: searchDocs,
 };
 
 const researchTools = {
