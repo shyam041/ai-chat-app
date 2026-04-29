@@ -51,7 +51,7 @@ export function streamChat(
 }
 
 // For research agents, we want to give access to more tools and allow more steps
-export function streamResearch(messages: ModelMessage[]) {
+export function streamResearch(messages: ModelMessage[], maxSteps = 5) {
   return streamText({
     model: anthropic("claude-sonnet-4-6"),
     system: `You are a research agent. When given a topic:
@@ -65,7 +65,7 @@ Always cite your sources with URLs.`,
     maxOutputTokens: 4096,
     messages,
     tools: researchTools,
-    stopWhen: stepCountIs(5), // more steps for complex research
+    stopWhen: stepCountIs(maxSteps),
     onStepFinish({ toolCalls }) {
       if (toolCalls?.length) {
         console.log(
