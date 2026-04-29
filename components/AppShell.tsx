@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { MessageSquare } from "lucide-react";
-import Chat from "@/components/Chat";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "./Sidebar";
 
-export default function Home() {
+export default function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -14,10 +13,9 @@ export default function Home() {
         <MessageSquare className="w-6 h-6 text-blue-600" />
         <span className="font-semibold text-sm tracking-tight">Claude Chat</span>
       </header>
-
       <div className="flex flex-1 overflow-hidden">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-        <Chat />
+        {children}
       </div>
     </main>
   );
