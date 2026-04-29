@@ -54,13 +54,12 @@ export function streamChat(
 export function streamResearch(messages: ModelMessage[], maxSteps = 5) {
   return streamText({
     model: anthropic("claude-sonnet-4-6"),
-    system: `You are a research agent. When given a topic:
-1. Search for information using multiple queries
-2. Read the most relevant pages for details
-3. Save key findings to your notepad
-4. After gathering enough information, write a comprehensive summary
+    system: `You are a research agent. Follow this strict sequence:
+1. Do 2-3 searches using searchWeb
+2. Read 2-3 of the most relevant pages using readWebPage
+3. STOP using tools and write your comprehensive summary
 
-Think step by step. Don't rush — do multiple searches if needed.
+You MUST write your final summary after step 3. Do not keep reading pages indefinitely.
 Always cite your sources with URLs.`,
     maxOutputTokens: 4096,
     messages,

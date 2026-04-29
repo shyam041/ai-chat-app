@@ -42,7 +42,7 @@ export const agents = {
   research: {
     tools: researchTools,
     system: "You are a research agent...",
-    maxSteps: 15,
+    maxSteps: 8,
   },
   chat: {
     tools: chatTools,
