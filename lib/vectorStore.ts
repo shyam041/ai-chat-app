@@ -26,7 +26,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 // INDEX: add a document to the store
-export async function indexDocument(text: string, source: string) {
+export async function indexDocument(text: string, source: string): Promise<number> {
   const chunks = chunkText(text, source);
   const embeddings = await embedTexts(chunks.map((c) => c.text));
 
@@ -35,6 +35,7 @@ export async function indexDocument(text: string, source: string) {
   });
 
   console.log(`Indexed ${chunks.length} chunks from ${source}`);
+  return chunks.length;
 }
 
 // SEARCH: find relevant chunks for a query
