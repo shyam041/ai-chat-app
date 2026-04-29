@@ -19,8 +19,12 @@ export async function POST(req: Request) {
     return Response.json({ error: "File is empty" }, { status: 400 });
   }
 
-  const chunkCount = await indexDocument(content, file.name);
-  addDoc(file.name, chunkCount);
-
-  return Response.json({ filename: file.name, chunkCount });
+  try {
+    const chunkCount = await indexDocument(content, file.name);
+    addDoc(file.name, chunkCount);
+    return Response.json({ filename: file.name, chunkCount });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Indexing failed";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }

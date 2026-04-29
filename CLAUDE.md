@@ -20,32 +20,60 @@ This is a Next.js 16 App Router project. The AI layer is built on the **Vercel A
 
 ### Data flow
 
+All chat goes through a smart routing layer:
+
 ```
 components/Chat.tsx
-  └─ useChat() from @ai-sdk/react
-       └─ POST /api/chat  (app/api/chat/route.ts)
-            └─ streamChat() from lib/ai.ts
-                 └─ streamText() from ai  →  Anthropic claude-sonnet-4-6
+  └─ useChat() via DefaultChatTransport({ api: "/api/smart-chat" })
+       └─ POST /api/smart-chat  (app/api/smart-chat/route.ts)
+            ├─ routeRequest() classifies message → "research" | "chat" | "code"
+            ├─ research → streamResearch() from lib/ai.ts  (searchWeb + readWebPage tools)
+            └─ chat/code → streamText() with agent config from lib/agent.ts
 ```
+
+`/api/chat` still exists as a simple passthrough but is no longer used by the UI.
+
+### Agent system (`lib/agent.ts`)
+
+`routeRequest()` makes a cheap 50-token LLM call to classify the user message. `agents` maps category names to `{ tools, system, maxSteps }` configs used by the smart-chat route.
+
+### RAG / doc search
+
+`lib/vectorStore.ts` holds an in-memory chunk store (replace with Pinecone/Supabase for production). Docs are indexed via `POST /api/index-docs` (accepts `{ documents: { text, source }[] }`). The `searchDocs` tool in `lib/tools.ts` queries it and is included in the chat agent's toolset.
+
+Embedding pipeline: `lib/chunker.ts` splits text → `lib/embeddings.ts` calls the Anthropic embeddings API → cosine similarity search in `lib/vectorStore.ts`.
 
 ### Key SDK conventions in this version (ai v6 / @ai-sdk v3)
 
-- **Message types:** The frontend works with `UIMessage[]` (has `id`, `role`, `parts[]`). The model layer requires `ModelMessage[]` (has `role`, `content`). Always call `await convertToModelMessages(uiMessages)` before passing to `streamText` / `generateText`.
-- **Streaming response:** Route handlers must return `result.toUIMessageStreamResponse()` (not `toDataStreamResponse` — that method does not exist in this version).
+- **Message types:** The frontend works with `UIMessage[]` (has `id`, `role`, `parts[]`). The model layer requires `ModelMessage[]`. Always call `await convertToModelMessages(uiMessages)` before passing to `streamText` / `generateText`.
+- **Streaming response:** Route handlers must return `result.toUIMessageStreamResponse()`.
 - **Token limit param:** `maxOutputTokens` (not `maxTokens`).
-- **`useChat` API:** Returns `{ messages, sendMessage, status }`. There is no `handleSubmit`, `handleInputChange`, or `isLoading`. Use `status === 'submitted' || status === 'streaming'` to detect in-progress state. Send messages with `sendMessage({ text: string })`.
-- **Rendering message text:** Messages have `parts: UIMessagePart[]`. Extract text with `.filter((p): p is { type: 'text'; text: string } => p.type === 'text').map(p => p.text).join('')`.
+- **Agentic loops:** Use `stopWhen: stepCountIs(n)` — `maxSteps` does not exist in this version.
+- **`useChat` API:** Returns `{ messages, sendMessage, status }`. Configure endpoint via `transport: new DefaultChatTransport({ api })`, not `{ api }` directly. Use `status === 'submitted' || status === 'streaming'` for loading state.
+- **Rendering message text:** `parts.filter((p): p is { type: 'text'; text: string } => p.type === 'text').map(p => p.text).join('')`.
 
 ### Files
 
 | Path | Purpose |
 |------|---------|
-| `lib/ai.ts` | AI helpers: `askClaude` (non-streaming, single message) and `streamChat` (streaming, conversation) |
-| `app/api/chat/route.ts` | POST handler — converts `UIMessage[]` → `ModelMessage[]`, calls `streamChat`, returns UI message stream |
-| `components/Chat.tsx` | Chat UI — uses `useChat` from `@ai-sdk/react` |
-| `components/Sidebar.tsx` | Collapsible sidebar — receives `collapsed: boolean` and `onToggle: () => void` from `page.tsx` |
-| `hooks/useChat.ts` | Legacy custom hook (unused by current UI; `Chat.tsx` uses the SDK hook instead) |
+| `lib/ai.ts` | `askClaude` (non-streaming), `streamChat` (basic chat), `streamResearch` (agentic web research) |
+| `lib/agent.ts` | `routeRequest()` classifier + `agents` config map |
+| `lib/tools.ts` | All tool definitions: `weatherTool`, `calculatorTool`, `searchWeb`, `readWebPage`, `notepad`, `searchDocs`, `planTool` |
+| `lib/vectorStore.ts` | In-memory RAG store: `indexDocument`, `search` |
+| `lib/embeddings.ts` | Anthropic embeddings helpers |
+| `lib/chunker.ts` | Text chunking for RAG indexing |
+| `app/api/smart-chat/route.ts` | Primary chat endpoint — classifies and dispatches |
+| `app/api/chat/route.ts` | Simple streaming endpoint (legacy, unused by UI) |
+| `app/api/research/route.ts` | Standalone research endpoint wrapping `streamResearch` |
+| `app/api/index-docs/route.ts` | Indexes documents into the vector store |
+| `components/Chat.tsx` | Chat UI |
+| `components/Sidebar.tsx` | Collapsible sidebar — `collapsed: boolean`, `onToggle: () => void` |
+| `hooks/useChat.ts` | Legacy custom hook (unused) |
 
 ### Environment
 
-Requires `ANTHROPIC_API_KEY` in `.env.local`.
+```
+ANTHROPIC_API_KEY   # required for all AI calls and chat agents
+OPENAI_API_KEY      # required for document embedding (text-embedding-3-small via @ai-sdk/openai)
+TAVILY_API_KEY      # required for searchWeb tool (web search)
+```
