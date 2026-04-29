@@ -26,14 +26,15 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       }`}
     >
       <div className="p-2 flex flex-col gap-1">
-        <button
+        <Link
+          href="/"
           className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg bg-neutral-800 dark:bg-neutral-700 text-white text-sm font-medium hover:bg-neutral-700 dark:hover:bg-neutral-600 transition-colors ${
             collapsed ? "justify-center" : ""
           }`}
         >
           <Plus className="w-4 h-4 shrink-0" />
           {!collapsed && <span>New Chat</span>}
-        </button>
+        </Link>
 
         <Link
           href="/documents"
